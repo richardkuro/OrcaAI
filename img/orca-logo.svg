@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Orca body -->
+  <ellipse cx="32" cy="34" rx="22" ry="14" fill="#0f172a"/>
+  <!-- White belly patch -->
+  <ellipse cx="30" cy="38" rx="14" ry="7" fill="#e2e8f0"/>
+  <!-- Dorsal fin -->
+  <path d="M34 20 L38 10 L40 22 Z" fill="#0f172a"/>
+  <!-- Tail fluke -->
+  <path d="M10 34 Q6 28 4 30 Q8 36 10 34Z" fill="#0f172a"/>
+  <path d="M10 34 Q6 40 4 38 Q8 34 10 34Z" fill="#0f172a"/>
+  <!-- Eye patch (white) -->
+  <ellipse cx="42" cy="31" rx="4" ry="2.5" fill="#e2e8f0" transform="rotate(-10 42 31)"/>
+  <!-- Eye -->
+  <circle cx="44" cy="31" r="1.2" fill="#0f172a"/>
+  <!-- Pectoral fin -->
+  <path d="M28 40 Q24 48 20 46 Q24 42 28 40Z" fill="#0f172a"/>
+</svg>

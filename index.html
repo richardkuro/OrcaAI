@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orca — AI-Powered Meeting Transcriptor</title>
+    <meta name="description"
+        content="Orca — AI-powered meeting transcriptor with automatic speaker detection, emotion analysis, and intelligent summaries.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;800;900&family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+
+    <!-- ═══════════════════════════════════════════════════
+     API Key Modal
+     ═══════════════════════════════════════════════════ -->
+    <div class="modal-overlay" id="apiKeyModal">
+        <div class="modal-box">
+            <h2>🔑 AI Enhancement (Optional)</h2>
+            <p>Enter a Gemini API key for richer AI analysis, or skip — <strong>local summarization works without any
+                    key!</strong>
+                Get a free key at <a href="https://ai.google.dev" target="_blank"
+                    style="color:var(--accent)">ai.google.dev</a></p>
+            <input type="password" id="apiKeyInput" placeholder="AIzaSy... (optional)" autocomplete="off">
+            <div class="modal-actions">
+                <button class="btn-action" id="skipApiKey" onclick="Orca.skipApiKey()">Use Local AI</button>
+                <button class="btn-action primary" id="saveApiKey" onclick="Orca.saveApiKey()">Save Gemini
+                    Key</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════
+     App Shell
+     ═══════════════════════════════════════════════════ -->
+    <div class="app">
+        <header>
+            <div class="logo-group">
+                <img src="img/orca-logo.png" alt="Orca" class="logo-icon">
+                <div>
+                    <div class="logo">Orca</div>
+                    <div class="logo-sub">AI-Powered Meeting Transcriptor</div>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;">
+                <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle theme">
+                    <span id="themeIcon">☀️</span> <span id="themeLabel">Light</span>
+                </button>
+                <div class="status-badge">
+                    <div class="status-dot" id="statusDot"></div>
+                    <span id="statusText">STANDBY</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-grid">
+
+            <!-- ═══════════ Left Column: Controls ═══════════ -->
+            <div class="left-col">
+
+                <!-- Audio Source -->
+                <div class="panel" id="audioPanel">
+                    <div class="panel-header">
+                        <div class="dot"></div>Audio Source
+                    </div>
+                    <div class="panel-body">
+                        <div class="source-selector">
+                            <label>Microphone Input</label>
+                            <select id="micSelect">
+                                <option value="">Loading devices...</option>
+                            </select>
+                        </div>
+                        <div style="display:flex;gap:8px;margin-bottom:10px">
+                            <div class="source-selector" style="flex:1">
+                                <label>Engine</label>
+                                <select id="engineSelect">
+                                    <option value="browser">🌐 Browser (Free)</option>
+                                    <option value="deepgram">⚡ Deepgram (Better)</option>
+                                </select>
+                            </div>
+                            <div class="source-selector" style="flex:1">
+                                <label>Language</label>
+                                <select id="langSelect">
+                                    <option value="en-US">English (US)</option>
+                                    <option value="en-GB">English (UK)</option>
+                                    <option value="hi-IN">Hindi (हिन्दी)</option>
+                                    <option value="hi-Latn">Hinglish (Roman)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="engineNote" class="engine-note" style="display:none"></div>
+                        <div class="visualizer-wrap">
+                            <canvas id="viz" width="300" height="50"></canvas>
+                        </div>
+                        <div class="timer" id="timer">—</div>
+                        <div style="display:flex;gap:8px;margin-bottom:10px">
+                            <button class="record-btn start" id="recordBtn" style="margin-bottom:0">
+                                <span>⏺</span> Start Recording
+                            </button>
+                            <button class="btn-action" id="pauseBtn"
+                                style="flex:0 0 auto;padding:14px 18px;display:none" title="Pause">⏸</button>
+                        </div>
+                        <div style="display:flex;gap:8px">
+                            <button class="btn-action" style="flex:1" id="clearBtn">Clear All</button>
+                            <div style="flex:1;display:flex;gap:4px" id="audioExportGroup">
+                                <button class="btn-action" style="flex:1;display:none" id="exportWebmBtn">📁
+                                    WebM</button>
+                                <button class="btn-action" style="flex:1;display:none" id="exportMp3Btn">🎵 MP3</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Speakers (auto-detected) -->
+                <div class="panel" id="speakerPanel">
+                    <div class="panel-header">
+                        <div class="dot"></div>Detected Speakers
+                    </div>
+                    <div class="panel-body">
+                        <div class="speaker-list" id="speakerList">
+                            <div style="font-size:0.7rem;color:var(--muted);text-align:center;padding:12px 0;">
+                                Speakers will appear here automatically when you record.
+                            </div>
+                        </div>
+                        <div class="emotion-legend" id="emotionLegend">
+                            <div class="legend-item">
+                                <div class="legend-dot" style="background:var(--emo-neutral)"></div>Neutral
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-dot" style="background:var(--emo-happy)"></div>Happy
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-dot" style="background:var(--emo-excited)"></div>Excited
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-dot" style="background:var(--emo-angry)"></div>Angry
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-dot" style="background:var(--emo-sad)"></div>Sad
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-dot" style="background:var(--emo-confused)"></div>Confused
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-dot" style="background:var(--emo-serious)"></div>Serious
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats -->
+                <div class="panel" id="statsPanel">
+                    <div class="panel-header">
+                        <div class="dot"></div>Session Stats
+                    </div>
+                    <div class="panel-body">
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-val" id="statWords">0</div>
+                                <div class="stat-label">Words</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-val" id="statEntries">0</div>
+                                <div class="stat-label">Entries</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-val" id="statSpeakers">0</div>
+                                <div class="stat-label">Speakers</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-val" id="statDuration">0m</div>
+                                <div class="stat-label">Duration</div>
+                            </div>
+                        </div>
+                        <div class="tone-summary" id="toneSummary" style="display:none">
+                            <div class="tone-summary-title">Tone Distribution</div>
+                            <div class="tone-bars" id="toneBars"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- ═══════════ Right Column: Transcript + Summary ═══════════ -->
+            <div class="right-col">
+
+                <!-- Live Transcript -->
+                <div class="panel transcript-panel" id="transcriptPanel">
+                    <div class="panel-header" style="justify-content:space-between">
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <div class="dot"></div>Live Transcript
+                        </div>
+                        <div style="display:flex;gap:6px">
+                            <button class="btn-action" style="padding:5px 10px;font-size:0.6rem"
+                                id="exportTxtBtn">TXT</button>
+                            <button class="btn-action" style="padding:5px 10px;font-size:0.6rem"
+                                id="exportJsonBtn">JSON</button>
+                            <button class="btn-action" style="padding:5px 10px;font-size:0.6rem"
+                                id="exportMdBtn">MD</button>
+                            <button class="btn-action" style="padding:5px 10px;font-size:0.6rem"
+                                id="exportWebmBtn2">WebM</button>
+                            <button class="btn-action" style="padding:5px 10px;font-size:0.6rem"
+                                id="exportMp3Btn2">MP3</button>
+                        </div>
+                    </div>
+                    <div class="transcript-body" id="transcriptBody">
+                        <div class="transcript-empty" id="emptyState">
+                            <div class="icon">🎙️</div>
+                            <p>Start recording to see live transcript</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Analysis -->
+                <div class="panel" id="aiPanel">
+                    <div class="panel-header">
+                        <div class="dot"></div>AI Analysis
+                    </div>
+                    <div class="panel-body">
+                        <div class="summary-actions">
+                            <button class="btn-action primary" id="summarizeBtn" disabled>✦ AI Summarize</button>
+                            <button class="btn-action" id="keypointsBtn" disabled>Key Points</button>
+                            <button class="btn-action" id="toneBtn" disabled>Tone Report</button>
+                        </div>
+                        <div class="summary-content" id="summaryContent">
+                            <span class="summary-placeholder">Record a meeting, then stop to auto-generate summary and
+                                key points. Or use the buttons above.</span>
+                        </div>
+                        <div id="keypointsList"></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════
+     Stop Confirmation Modal
+     ═══════════════════════════════════════════════════ -->
+    <div class="modal-overlay" id="stopConfirmModal">
+        <div class="modal-box">
+            <h2>⏹ Stop Recording?</h2>
+            <p>Are you sure you want to stop? AI summary and key points will be auto-generated after stopping.</p>
+            <div class="modal-actions">
+                <button class="btn-action" id="cancelStopBtn">Continue Recording</button>
+                <button class="btn-action primary" id="confirmStopBtn"
+                    style="background:linear-gradient(135deg,#ef4444,#dc2626);border-color:transparent">Stop
+                    Recording</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Theme toggle (runs first to avoid flash) -->
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const isDark = html.getAttribute('data-theme') !== 'light';
+            html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+            localStorage.setItem('mm_theme', isDark ? 'light' : 'dark');
+            updateThemeButton();
+        }
+        function updateThemeButton() {
+            const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+            const icon = document.getElementById('themeIcon');
+            const label = document.getElementById('themeLabel');
+            if (icon) icon.textContent = isLight ? '🌙' : '☀️';
+            if (label) label.textContent = isLight ? 'Dark' : 'Light';
+        }
+        // Restore saved theme
+        (function () {
+            const saved = localStorage.getItem('mm_theme');
+            if (saved) document.documentElement.setAttribute('data-theme', saved);
+        })();
+        document.addEventListener('DOMContentLoaded', updateThemeButton);
+    </script>
+
+    <!-- JS Modules (loaded in dependency order) -->
+    <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/deepgram.js"></script>
+    <script src="js/recorder.js"></script>
+    <script src="js/transcript.js"></script>
+    <script src="js/ai.js"></script>
+    <script src="js/export.js"></script>
+    <script src="js/app.js"></script>
+
+</body>
+
+</html>
