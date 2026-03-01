@@ -50,11 +50,13 @@ const UI = (() => {
     // ── Timer ──
     let _timerInterval = null;
     let _startTime = null;
+    let _elapsed = 0;     // ms accumulated before last pause
 
     function startTimer() {
+        // If resuming after a pause, _elapsed already holds the previous time
         _startTime = Date.now();
         _timerInterval = setInterval(() => {
-            const s = Math.floor((Date.now() - _startTime) / 1000);
+            const s = Math.floor((_elapsed + (Date.now() - _startTime)) / 1000);
             const m = String(Math.floor(s / 60)).padStart(2, '0');
             const sec = String(s % 60).padStart(2, '0');
             els.timer.textContent = `${m}:${sec}`;
@@ -63,12 +65,18 @@ const UI = (() => {
     }
 
     function stopTimer() {
+        // Accumulate elapsed time so resume picks up from here
+        if (_startTime !== null) {
+            _elapsed += Date.now() - _startTime;
+            _startTime = null;
+        }
         clearInterval(_timerInterval);
         _timerInterval = null;
     }
 
     function resetTimer() {
         stopTimer();
+        _elapsed = 0;
         els.timer.textContent = '—';
         els.statDuration.textContent = '0m';
     }
