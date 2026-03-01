@@ -66,18 +66,12 @@ const Orca = (() => {
         // Check browser speech support and update UI
         updateEngineNote();
 
-        // Auto-configure Deepgram with provided key
-        const storedDgKey = sessionStorage.getItem('mm_deepgram_key');
-        let dgKey = storedDgKey;
-        if (!dgKey) {
-            // Prompt user for key if not found in session storage
-            dgKey = prompt("Please enter your Deepgram API Key for voice diarization:");
-            if (!dgKey) {
-                console.warn('[Orca] No Deepgram API key provided. Diarization disabled.');
-                // Handle fallback or disable deepgram features appropriately.
-                // For now, let it proceed, but Deepgram initialization will likely fail or fall back.
-            }
-        }
+        // ── DEMO MODE: API keys hardcoded ──
+        const DEMO_DEEPGRAM_KEY = '8e44c11077a58f718d1b46940775d00534d7020c';
+        const DEMO_GEMINI_KEY = 'AIzaSyBoIS4xgdArJNOxoO_0Hq116YEY1QBsHIw';
+
+        // Auto-configure Deepgram (no prompt)
+        const dgKey = sessionStorage.getItem('mm_deepgram_key') || DEMO_DEEPGRAM_KEY;
         DeepgramEngine.setApiKey(dgKey);
         sessionStorage.setItem('mm_deepgram_key', dgKey);
         console.log('[Orca] Deepgram configured (voice diarization enabled)');
@@ -87,15 +81,13 @@ const Orca = (() => {
         Recorder.setEngine('deepgram');
         updateEngineNote();
 
-        // Check for stored Gemini key
-        const geminiKey = sessionStorage.getItem('mm_api_key');
-        if (geminiKey) {
-            AI.setApiKey(geminiKey);
-            console.log('[Orca] Gemini key loaded from session');
-        }
-
-        // Show API key modal
-        UI.showApiKeyModal();
+        // Auto-configure Gemini (no modal)
+        const geminiKey = sessionStorage.getItem('mm_api_key') || DEMO_GEMINI_KEY;
+        AI.setApiKey(geminiKey);
+        sessionStorage.setItem('mm_api_key', geminiKey);
+        console.log('[Orca] Gemini key loaded (demo mode)');
+        // Skip API key modal in demo mode
+        // UI.showApiKeyModal();
 
         console.log('[Orca] Ready');
         console.groupEnd();

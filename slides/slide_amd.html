@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920" />
+    <title>Orca × AMD — Solutions</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet" />
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #060b14;
+            --surface: rgba(255, 255, 255, 0.04);
+            --border: rgba(255, 255, 255, 0.08);
+            --amd: #ED1C24;
+            --amd2: #ff6b35;
+            --accent: #00e5ff;
+            --accent2: #a78bfa;
+            --accent3: #22c55e;
+            --text: #f0f6ff;
+            --muted: #7a8ba0;
+        }
+
+        html,
+        body {
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+            background: var(--bg);
+            font-family: 'Outfit', sans-serif;
+            color: var(--text);
+        }
+
+        /* AMD-themed background */
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(237, 28, 36, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(237, 28, 36, 0.04) 1px, transparent 1px);
+            background-size: 80px 80px;
+            animation: gridMove 20s linear infinite;
+        }
+
+        @keyframes gridMove {
+            from {
+                transform: translateY(0)
+            }
+
+            to {
+                transform: translateY(80px)
+            }
+        }
+
+        .bg-glow {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(160px);
+            opacity: 0.1;
+            animation: pulse 6s ease-in-out infinite;
+        }
+
+        .bg-glow-1 {
+            width: 800px;
+            height: 800px;
+            background: var(--amd);
+            top: -250px;
+            left: -150px;
+        }
+
+        .bg-glow-2 {
+            width: 700px;
+            height: 700px;
+            background: var(--accent2);
+            bottom: -200px;
+            right: -150px;
+            animation-delay: 3s;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 0.08;
+                transform: scale(1)
+            }
+
+            50% {
+                opacity: 0.16;
+                transform: scale(1.07)
+            }
+        }
+
+        /* ── Slide layout: top header + 2-panel body ── */
+        .slide {
+            position: relative;
+            z-index: 1;
+            width: 1920px;
+            height: 1080px;
+            display: grid;
+            grid-template-rows: 130px 1fr;
+        }
+
+        /* ── HEADER ── */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 100px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(237, 28, 36, 0.04);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .orca-badge {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.8rem;
+            font-weight: 900;
+            letter-spacing: -1px;
+            background: linear-gradient(135deg, #fff 40%, var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .cross {
+            font-size: 1.4rem;
+            color: var(--muted);
+            font-weight: 300;
+            -webkit-text-fill-color: var(--muted)
+        }
+
+        .amd-logo {
+            background: linear-gradient(135deg, var(--amd), var(--amd2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 1.8rem;
+            font-weight: 900;
+            letter-spacing: -1px;
+        }
+
+        .header-tag {
+            background: rgba(237, 28, 36, 0.1);
+            border: 1px solid rgba(237, 28, 36, 0.25);
+            border-radius: 100px;
+            padding: 6px 18px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--amd);
+        }
+
+        .header-title {
+            font-size: 1.6rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            color: #fff;
+        }
+
+        .header-sub {
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+
+        /* ── BODY: left stack + right ── */
+        .body {
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            overflow: hidden;
+        }
+
+        /* Left sidebar */
+        .sidebar {
+            border-right: 1px solid var(--border);
+            padding: 40px 40px 40px 100px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            background: rgba(237, 28, 36, 0.03);
+        }
+
+        .sidebar-label {
+            font-size: 0.6rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+
+        .stack-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px 20px;
+            transition: border-color 0.3s;
+            cursor: default;
+        }
+
+        .stack-item:hover {
+            border-color: rgba(237, 28, 36, 0.35);
+        }
+
+        .stack-item.active {
+            border-color: var(--amd);
+            background: rgba(237, 28, 36, 0.07);
+        }
+
+        .stack-icon {
+            font-size: 1.6rem;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .stack-info h4 {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 3px;
+        }
+
+        .stack-info p {
+            font-size: 0.68rem;
+            color: var(--muted);
+        }
+
+        .stack-badge {
+            margin-left: auto;
+            padding: 3px 10px;
+            border-radius: 100px;
+            font-size: 0.58rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .badge-red {
+            background: rgba(237, 28, 36, 0.15);
+            color: var(--amd);
+        }
+
+        .badge-now {
+            background: rgba(34, 197, 94, 0.12);
+            color: #22c55e;
+        }
+
+        .badge-soon {
+            background: rgba(245, 158, 11, 0.12);
+            color: #f59e0b;
+        }
+
+        .badge-later {
+            background: rgba(167, 139, 250, 0.12);
+            color: var(--accent2);
+        }
+
+        /* Right main panel */
+        .main {
+            padding: 40px 80px 40px 48px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow: hidden;
+        }
+
+        .main-label {
+            font-size: 0.6rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        /* Product cards grid */
+        .product-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 18px;
+            flex: 1;
+        }
+
+        .product-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 28px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s, border-color 0.3s;
+        }
+
+        .product-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(237, 28, 36, 0.3);
+        }
+
+        .product-card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at top left, rgba(237, 28, 36, 0.07), transparent 60%);
+            pointer-events: none;
+        }
+
+        .product-icon {
+            font-size: 2.2rem;
+            margin-bottom: 16px;
+        }
+
+        .product-name {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .product-sub {
+            font-size: 0.7rem;
+            color: var(--amd);
+            font-weight: 600;
+            margin-bottom: 12px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .product-desc {
+            font-size: 0.76rem;
+            color: var(--muted);
+            line-height: 1.65;
+            flex: 1;
+        }
+
+        .product-specs {
+            margin-top: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .spec-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.67rem;
+        }
+
+        .spec-key {
+            color: var(--muted);
+        }
+
+        .spec-val {
+            color: var(--amd);
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Integration strip */
+        .integration-strip {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 20px 28px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .int-label {
+            font-size: 0.65rem;
+            color: var(--muted);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .int-steps {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            flex: 1;
+        }
+
+        .int-step {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 100px;
+            background: rgba(237, 28, 36, 0.08);
+            border: 1px solid rgba(237, 28, 36, 0.2);
+            font-size: 0.68rem;
+            font-weight: 600;
+            color: #fff;
+            white-space: nowrap;
+        }
+
+        .int-arrow {
+            color: var(--muted);
+            padding: 0 8px;
+            font-size: 0.9rem;
+        }
+
+        .int-step-num {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--amd);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.58rem;
+            font-weight: 800;
+        }
+
+        /* slide nav */
+        .slide-nav {
+            position: fixed;
+            bottom: 36px;
+            right: 60px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            z-index: 10;
+        }
+
+        .slide-nav a {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 22px;
+            border-radius: 100px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--muted);
+            text-decoration: none;
+            transition: border-color 0.2s, color 0.2s;
+        }
+
+        .slide-nav a:hover {
+            border-color: var(--amd);
+            color: var(--amd);
+        }
+
+        .slide-counter {
+            font-size: 0.65rem;
+            color: var(--muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-grid"></div>
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+
+    <div class="slide">
+
+        <!-- HEADER -->
+        <div class="header">
+            <div class="header-left">
+                <div class="orca-badge">🐋 Orca</div>
+                <span class="cross">×</span>
+                <div class="amd-logo">AMD</div>
+                <div class="header-tag">Solutions Blueprint</div>
+            </div>
+            <div style="text-align:right">
+                <div class="header-title">Powering Orca with AMD's Open AI Stack</div>
+                <div class="header-sub">ROCm · Instinct · EPYC — Eliminate third-party API dependency for full privacy &
+                    scale</div>
+            </div>
+        </div>
+
+        <!-- BODY -->
+        <div class="body">
+
+            <!-- SIDEBAR: AMD Stack Layers -->
+            <div class="sidebar">
+                <div>
+                    <div class="sidebar-label">AMD Stack Layers</div>
+                </div>
+
+                <div class="stack-item active">
+                    <div class="stack-icon">⚡</div>
+                    <div class="stack-info">
+                        <h4>AMD Instinct MI300X</h4>
+                        <p>AI inference GPU · 192GB HBM3</p>
+                    </div>
+                    <span class="stack-badge badge-red">Inference</span>
+                </div>
+
+                <div class="stack-item">
+                    <div class="stack-icon">🔧</div>
+                    <div class="stack-info">
+                        <h4>ROCm 6.0 Platform</h4>
+                        <p>Open-source CUDA alternative</p>
+                    </div>
+                    <span class="stack-badge badge-red">Runtime</span>
+                </div>
+
+                <div class="stack-item">
+                    <div class="stack-icon">🖥️</div>
+                    <div class="stack-info">
+                        <h4>AMD EPYC (Server CPU)</h4>
+                        <p>128 cores · Backend API host</p>
+                    </div>
+                    <span class="stack-badge badge-red">Compute</span>
+                </div>
+
+                <div class="stack-item">
+                    <div class="stack-icon">🔬</div>
+                    <div class="stack-info">
+                        <h4>AMD Radeon RX 7000</h4>
+                        <p>Dev workstation for local testing</p>
+                    </div>
+                    <span class="stack-badge badge-soon">Dev</span>
+                </div>
+
+                <div class="stack-item">
+                    <div class="stack-icon">📦</div>
+                    <div class="stack-info">
+                        <h4>vLLM + PyTorch ROCm</h4>
+                        <p>Inference engine & ML framework</p>
+                    </div>
+                    <span class="stack-badge badge-later">Software</span>
+                </div>
+            </div>
+
+            <!-- MAIN: 3 product cards -->
+            <div class="main">
+                <div class="main-label">How Orca Integrates AMD Products</div>
+
+                <div class="product-grid">
+
+                    <!-- Card 1: Whisper on ROCm -->
+                    <div class="product-card">
+                        <div class="product-icon">🎤</div>
+                        <div class="product-name">Self-hosted Whisper</div>
+                        <div class="product-sub">AMD Instinct MI300X + ROCm 6.0</div>
+                        <div class="product-desc">
+                            Replace Deepgram's cloud API with OpenAI Whisper-large-v3 running locally on AMD GPU.
+                            Audio streams from Orca hit your own ROCm inference server — zero data leaves your
+                            infrastructure.
+                            Pyannote.audio handles speaker diarization on the same hardware.
+                        </div>
+                        <div class="product-specs">
+                            <div class="spec-row"><span class="spec-key">Install</span><span class="spec-val">pip
+                                    install torch --index-url .../rocm6.0</span></div>
+                            <div class="spec-row"><span class="spec-key">Model</span><span
+                                    class="spec-val">whisper-large-v3 + pyannote/speaker-diarization</span></div>
+                            <div class="spec-row"><span class="spec-key">Latency</span><span class="spec-val">&lt; 200ms
+                                    on MI300X</span></div>
+                            <div class="spec-row"><span class="spec-key">Replaces</span><span
+                                    class="spec-val">deepgram.js WebSocket → local WS server</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Card 2: Llama on vLLM -->
+                    <div class="product-card">
+                        <div class="product-icon">🧠</div>
+                        <div class="product-name">Self-hosted LLM</div>
+                        <div class="product-sub">vLLM + Llama 3 70B on ROCm</div>
+                        <div class="product-desc">
+                            Replace Gemini API calls in ai.js with a local vLLM server running Llama 3 70B (or Mistral).
+                            The endpoint shape mirrors the current callGemini() function — only the URL changes.
+                            Full summarization, key points, and tone analysis with no API costs.
+                        </div>
+                        <div class="product-specs">
+                            <div class="spec-row"><span class="spec-key">Engine</span><span class="spec-val">vLLM (AMD
+                                    ROCm build)</span></div>
+                            <div class="spec-row"><span class="spec-key">Model</span><span
+                                    class="spec-val">meta-llama/Llama-3-70B-Instruct</span></div>
+                            <div class="spec-row"><span class="spec-key">API Shape</span><span
+                                    class="spec-val">OpenAI-compatible REST (drop-in)</span></div>
+                            <div class="spec-row"><span class="spec-key">Replaces</span><span class="spec-val">ai.js
+                                    callGemini() → local endpoint</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Card 3: EPYC Backend -->
+                    <div class="product-card">
+                        <div class="product-icon">🖥️</div>
+                        <div class="product-name">EPYC API Backend</div>
+                        <div class="product-sub">AMD EPYC 9004 · 128 cores</div>
+                        <div class="product-desc">
+                            Deploy Orca's backend on an AMD EPYC server (Hetzner AX162 or AWS c7a).
+                            Handles 500+ concurrent WebSocket audio streams, key proxying,
+                            transcript storage and user auth. EPYC's high core count is ideal for
+                            I/O-bound audio streaming workloads.
+                        </div>
+                        <div class="product-specs">
+                            <div class="spec-row"><span class="spec-key">Instance</span><span class="spec-val">Hetzner
+                                    AX162 (EPYC) · ~€200/mo</span></div>
+                            <div class="spec-row"><span class="spec-key">Stack</span><span class="spec-val">Node.js +
+                                    Fastify + Redis</span></div>
+                            <div class="spec-row"><span class="spec-key">Capacity</span><span class="spec-val">500+
+                                    concurrent WebSocket streams</span></div>
+                            <div class="spec-row"><span class="spec-key">Enables</span><span class="spec-val">Auth,
+                                    storage, team workspaces</span></div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Integration Flow -->
+                <div class="integration-strip">
+                    <div class="int-label">Integration Path</div>
+                    <div class="int-steps">
+                        <div class="int-step">
+                            <div class="int-step-num">1</div>Install ROCm 6.0
+                        </div>
+                        <span class="int-arrow">→</span>
+                        <div class="int-step">
+                            <div class="int-step-num">2</div>Deploy Whisper Server
+                        </div>
+                        <span class="int-arrow">→</span>
+                        <div class="int-step">
+                            <div class="int-step-num">3</div>Deploy vLLM + Llama 3
+                        </div>
+                        <span class="int-arrow">→</span>
+                        <div class="int-step">
+                            <div class="int-step-num">4</div>Swap endpoints in deepgram.js + ai.js
+                        </div>
+                        <span class="int-arrow">→</span>
+                        <div class="int-step">
+                            <div class="int-step-num">5</div>Host on AMD EPYC server
+                        </div>
+                        <span class="int-arrow">→</span>
+                        <div class="int-step"
+                            style="background:rgba(34,197,94,0.08);border-color:rgba(34,197,94,0.3);color:#22c55e">✓
+                            Zero API costs · Full privacy</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="slide-nav">
+        <span class="slide-counter">02 / 03</span>
+        <a href="slide_pitch.html">← Pitch</a>
+        <a href="slide_roadmap.html">Roadmap →</a>
+    </div>
+</body>
+
+</html>

@@ -125,25 +125,69 @@ const AI = (() => {
     }
 
     // ══════════════════════════════════════════════════════
-    //  GEMINI API (optional, for richer analysis)
+    //  GEMINI API — with rate limiting (free tier: 15 RPM)
+    //  Min 5s between calls, exponential backoff on 429
     // ══════════════════════════════════════════════════════
 
-    async function callGemini(prompt) {
+    const RATE_LIMIT_MS = 5000;   // min ms between Gemini calls (5s → max 12 RPM, safe under 15)
+    const MAX_RETRIES = 3;
+    let lastGeminiCall = 0;      // timestamp of last successful call
+    let geminiQueue = Promise.resolve(); // serialise concurrent requests
+
+    function waitForRateLimit() {
+        const now = Date.now();
+        const wait = Math.max(0, RATE_LIMIT_MS - (now - lastGeminiCall));
+        return new Promise(resolve => setTimeout(resolve, wait));
+    }
+
+    async function callGeminiOnce(prompt) {
+        await waitForRateLimit();
+        lastGeminiCall = Date.now();
+
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
         const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { maxOutputTokens: 2500, temperature: 0.7 },
+                generationConfig: { maxOutputTokens: 1500, temperature: 0.5 },
             }),
         });
+
+        if (res.status === 429) {
+            // Rate limited — back off based on Retry-After header or default
+            const retryAfter = parseInt(res.headers.get('Retry-After') || '15', 10);
+            console.warn(`[AI] Gemini rate limited. Retrying after ${retryAfter}s...`);
+            await new Promise(r => setTimeout(r, retryAfter * 1000));
+            throw new Error('rate_limited'); // signal retry
+        }
+
         if (!res.ok) {
             const errText = await res.text().catch(() => '');
             throw new Error(`Gemini API error (${res.status}): ${errText.substring(0, 150)}`);
         }
         const data = await res.json();
         return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    }
+
+    async function callGemini(prompt) {
+        // Serialise via queue so concurrent UI actions don't fire parallel requests
+        geminiQueue = geminiQueue.then(async () => {
+            let delay = 2000;
+            for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+                try {
+                    return await callGeminiOnce(prompt);
+                } catch (e) {
+                    if (e.message === 'rate_limited' && attempt < MAX_RETRIES) {
+                        await new Promise(r => setTimeout(r, delay));
+                        delay *= 2; // exponential backoff
+                        continue;
+                    }
+                    throw e;
+                }
+            }
+        });
+        return geminiQueue;
     }
 
     function buildTranscriptText(entries) {

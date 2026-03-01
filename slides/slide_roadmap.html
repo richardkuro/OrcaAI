@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920" />
+    <title>Orca — Future Roadmap</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet" />
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #060b14;
+            --surface: rgba(255, 255, 255, 0.04);
+            --border: rgba(255, 255, 255, 0.08);
+            --accent: #00e5ff;
+            --accent2: #a78bfa;
+            --accent3: #22c55e;
+            --gold: #f59e0b;
+            --text: #f0f6ff;
+            --muted: #7a8ba0;
+            --phase1: #22c55e;
+            --phase2: #00e5ff;
+            --phase3: #a78bfa;
+        }
+
+        html,
+        body {
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+            background: var(--bg);
+            font-family: 'Outfit', sans-serif;
+            color: var(--text);
+        }
+
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(167, 139, 250, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(167, 139, 250, 0.04) 1px, transparent 1px);
+            background-size: 80px 80px;
+            animation: gridMove 20s linear infinite;
+        }
+
+        @keyframes gridMove {
+            from {
+                transform: translateY(0)
+            }
+
+            to {
+                transform: translateY(80px)
+            }
+        }
+
+        .bg-glow {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(160px);
+            opacity: 0.1;
+            animation: pulse 6s ease-in-out infinite;
+        }
+
+        .bg-glow-1 {
+            width: 700px;
+            height: 700px;
+            background: var(--accent2);
+            top: -200px;
+            right: -100px;
+        }
+
+        .bg-glow-2 {
+            width: 600px;
+            height: 600px;
+            background: var(--accent3);
+            bottom: -200px;
+            left: -100px;
+            animation-delay: 3s;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 0.08;
+                transform: scale(1)
+            }
+
+            50% {
+                opacity: 0.16;
+                transform: scale(1.07)
+            }
+        }
+
+        /* ── LAYOUT: header + body ── */
+        .slide {
+            position: relative;
+            z-index: 1;
+            width: 1920px;
+            height: 1080px;
+            display: grid;
+            grid-template-rows: 114px 1fr;
+        }
+
+        /* HEADER */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 100px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(167, 139, 250, 0.04);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .logo-badge {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.8rem;
+            font-weight: 900;
+            letter-spacing: -1px;
+            background: linear-gradient(135deg, #fff 40%, var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-tag {
+            background: rgba(167, 139, 250, 0.1);
+            border: 1px solid rgba(167, 139, 250, 0.25);
+            border-radius: 100px;
+            padding: 6px 18px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--accent2);
+        }
+
+        .header-right {
+            text-align: right;
+        }
+
+        .header-title {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: -0.5px;
+        }
+
+        .header-sub {
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+
+        /* BODY: 3 phase columns + right legend col */
+        .body {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 280px;
+            gap: 0;
+            overflow: hidden;
+        }
+
+        /* Phase column */
+        .phase-col {
+            padding: 36px 36px 36px 40px;
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            overflow: hidden;
+        }
+
+        .phase-col:first-child {
+            padding-left: 100px;
+        }
+
+        .phase-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 16px 20px;
+            border-radius: 16px;
+            border: 1px solid;
+            margin-bottom: 4px;
+        }
+
+        .ph-p1 {
+            border-color: rgba(34, 197, 94, 0.3);
+            background: rgba(34, 197, 94, 0.06);
+        }
+
+        .ph-p2 {
+            border-color: rgba(0, 229, 255, 0.3);
+            background: rgba(0, 229, 255, 0.06);
+        }
+
+        .ph-p3 {
+            border-color: rgba(167, 139, 250, 0.3);
+            background: rgba(167, 139, 250, 0.06);
+        }
+
+        .phase-num {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 800;
+            flex-shrink: 0;
+        }
+
+        .pn-1 {
+            background: rgba(34, 197, 94, 0.2);
+            color: var(--phase1);
+        }
+
+        .pn-2 {
+            background: rgba(0, 229, 255, 0.2);
+            color: var(--phase2);
+        }
+
+        .pn-3 {
+            background: rgba(167, 139, 250, 0.2);
+            color: var(--phase3);
+        }
+
+        .phase-info {
+            flex: 1;
+        }
+
+        .phase-name {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: #fff;
+        }
+
+        .phase-time {
+            font-size: 0.65rem;
+            color: var(--muted);
+            font-family: 'JetBrains Mono', monospace;
+            margin-top: 2px;
+        }
+
+        .phase-pill {
+            padding: 4px 12px;
+            border-radius: 100px;
+            font-size: 0.6rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .pill-1 {
+            background: rgba(34, 197, 94, 0.12);
+            color: var(--phase1);
+        }
+
+        .pill-2 {
+            background: rgba(0, 229, 255, 0.12);
+            color: var(--phase2);
+        }
+
+        .pill-3 {
+            background: rgba(167, 139, 250, 0.12);
+            color: var(--phase3);
+        }
+
+        /* Feature item */
+        .feat-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px 18px;
+            transition: transform 0.25s, border-color 0.25s;
+        }
+
+        .feat-item:hover {
+            transform: translateX(4px);
+        }
+
+        .feat-item.p1:hover {
+            border-color: rgba(34, 197, 94, 0.3);
+        }
+
+        .feat-item.p2:hover {
+            border-color: rgba(0, 229, 255, 0.3);
+        }
+
+        .feat-item.p3:hover {
+            border-color: rgba(167, 139, 250, 0.3);
+        }
+
+        .feat-icon {
+            font-size: 1.3rem;
+            margin-top: 1px;
+            flex-shrink: 0;
+        }
+
+        .feat-content {
+            flex: 1;
+        }
+
+        .feat-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 3px;
+        }
+
+        .feat-desc {
+            font-size: 0.68rem;
+            color: var(--muted);
+            line-height: 1.55;
+        }
+
+        .feat-tag {
+            margin-top: 6px;
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 100px;
+            font-size: 0.58rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .tag-quick {
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--phase1);
+        }
+
+        .tag-medium {
+            background: rgba(0, 229, 255, 0.1);
+            color: var(--phase2);
+        }
+
+        .tag-big {
+            background: rgba(167, 139, 250, 0.1);
+            color: var(--phase3);
+        }
+
+        .tag-amd {
+            background: rgba(237, 28, 36, 0.1);
+            color: #ED1C24;
+        }
+
+        .tag-gold {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--gold);
+        }
+
+        /* LEGEND SIDEBAR */
+        .legend-col {
+            padding: 36px 40px 36px 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .legend-label {
+            font-size: 0.6rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 4px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.75rem;
+            color: var(--muted);
+        }
+
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .progress-block {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 20px;
+        }
+
+        .progress-block h4 {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 14px;
+        }
+
+        .progress-row {
+            margin-bottom: 10px;
+        }
+
+        .progress-top {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.65rem;
+            margin-bottom: 6px;
+        }
+
+        .progress-key {
+            color: var(--muted);
+        }
+
+        .progress-pct {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+        }
+
+        .progress-bar {
+            height: 5px;
+            border-radius: 100px;
+            background: rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 100px;
+        }
+
+        .vision-card {
+            background: linear-gradient(135deg, rgba(167, 139, 250, 0.1), rgba(0, 229, 255, 0.06));
+            border: 1px solid rgba(167, 139, 250, 0.25);
+            border-radius: 14px;
+            padding: 20px;
+            flex: 1;
+        }
+
+        .vision-card h4 {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--accent2);
+            margin-bottom: 10px;
+            letter-spacing: 0.05em;
+        }
+
+        .vision-card p {
+            font-size: 0.7rem;
+            color: var(--muted);
+            line-height: 1.65;
+        }
+
+        /* Timeline bar at bottom */
+        .timeline-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            background: rgba(6, 11, 20, 0.9);
+            border-top: 1px solid var(--border);
+            padding: 0 100px;
+            z-index: 10;
+            gap: 0;
+        }
+
+        .tl-segment {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 32px;
+            height: 100%;
+            border-right: 1px solid var(--border);
+        }
+
+        .tl-segment:first-child {
+            padding-left: 0;
+        }
+
+        .tl-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .tl-label {
+            font-size: 0.68rem;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .tl-sub {
+            font-size: 0.6rem;
+            color: var(--muted);
+        }
+
+        .tl-arrow {
+            color: var(--muted);
+            padding: 0 4px;
+        }
+
+        .slide-nav {
+            position: fixed;
+            bottom: 70px;
+            right: 60px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            z-index: 20;
+        }
+
+        .slide-nav a {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 22px;
+            border-radius: 100px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--muted);
+            text-decoration: none;
+            transition: border-color 0.2s, color 0.2s;
+        }
+
+        .slide-nav a:hover {
+            border-color: var(--accent2);
+            color: var(--accent2);
+        }
+
+        .slide-counter {
+            font-size: 0.65rem;
+            color: var(--muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-grid"></div>
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+
+    <div class="slide">
+
+        <!-- HEADER -->
+        <div class="header">
+            <div class="header-left">
+                <div class="logo-badge">🐋 Orca</div>
+                <div class="header-tag">Future Roadmap</div>
+            </div>
+            <div class="header-right">
+                <div class="header-title">From Browser Tool to AI-Native Meeting Platform</div>
+                <div class="header-sub">12-month phased evolution — privacy-first, scalable, team-ready</div>
+            </div>
+        </div>
+
+        <!-- BODY -->
+        <div class="body">
+
+            <!-- PHASE 1 -->
+            <div class="phase-col">
+                <div class="phase-header ph-p1">
+                    <div class="phase-num pn-1">1</div>
+                    <div class="phase-info">
+                        <div class="phase-name">Quick Wins</div>
+                        <div class="phase-time">0 – 3 months · Client-side</div>
+                    </div>
+                    <span class="phase-pill pill-1">Now</span>
+                </div>
+
+                <div class="feat-item p1">
+                    <div class="feat-icon">🔍</div>
+                    <div class="feat-content">
+                        <div class="feat-title">Real-time Transcript Search</div>
+                        <div class="feat-desc">Ctrl+F inside the transcript panel — filter by speaker, keyword, or tone
+                            inline.</div>
+                        <span class="feat-tag tag-quick">Low effort</span>
+                    </div>
+                </div>
+
+                <div class="feat-item p1">
+                    <div class="feat-icon">📄</div>
+                    <div class="feat-content">
+                        <div class="feat-title">PDF Export</div>
+                        <div class="feat-desc">Add jsPDF library — generate beautiful branded PDF transcript reports,
+                            client-side.</div>
+                        <span class="feat-tag tag-quick">Low effort</span>
+                    </div>
+                </div>
+
+                <div class="feat-item p1">
+                    <div class="feat-icon">📝</div>
+                    <div class="feat-content">
+                        <div class="feat-title">Meeting Titles & Tags</div>
+                        <div class="feat-desc">Let users label sessions before recording. Save to localStorage for easy
+                            reference.</div>
+                        <span class="feat-tag tag-quick">Low effort</span>
+                    </div>
+                </div>
+
+                <div class="feat-item p1">
+                    <div class="feat-icon">🌐</div>
+                    <div class="feat-content">
+                        <div class="feat-title">Offline Transcription</div>
+                        <div class="feat-desc">Integrate transformers.js with Whisper WASM — works completely offline,
+                            no API key needed.</div>
+                        <span class="feat-tag tag-medium">Medium</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PHASE 2 -->
+            <div class="phase-col">
+                <div class="phase-header ph-p2">
+                    <div class="phase-num pn-2">2</div>
+                    <div class="phase-info">
+                        <div class="phase-name">Backend & Scale</div>
+                        <div class="phase-time">3 – 6 months · Node.js + Cloud</div>
+                    </div>
+                    <span class="phase-pill pill-2">Next</span>
+                </div>
+
+                <div class="feat-item p2">
+                    <div class="feat-icon">🔑</div>
+                    <div class="feat-content">
+                        <div class="feat-title">Auth + Meeting History</div>
+                        <div class="feat-desc">Firebase Auth + Firestore — save every session, browse past meetings,
+                            search across them.</div>
+                        <span class="feat-tag tag-medium">Medium effort</span>
+                    </div>
+                </div>
+
+                <div class="feat-item p2">
+                    <div class="feat-icon">👥</div>
+                    <div class="feat-content">
+                        <div class="feat-title">Team Workspaces</div>
+                        <div class="feat-desc">Share transcripts, co-edit speaker names, and sync meeting summaries
+                            across a team. Role-based access.</div>
+                        <span class="feat-tag tag-medium">Medium effort</span>
+                    </div>
+                </div>
+
+                <div class="feat-item p2">
+                    <div class="feat-icon">📊</div>
+                    <div class="feat-content">
+                        <div class="feat-title">Analytics Dashboard</div>
+                        <div class="feat-desc">Talk-time heatmaps, word-per-speaker charts, tone trend graphs, topic
+                            frequency visualization.</div>
+                        <span class="feat-tag tag-medium">Medium effort</span>
+                    </div>
+                </div>
+
+                <div class="feat-item p2">
+                    <div class="feat-icon">🖥️</div>
+                    <div class="feat-content">
+                        <div class="feat-title">EPYC Backend Deploy</div>
+                        <div class="feat-desc">Host on AMD EPYC server. API key proxying, WebSocket gateway, 500+
+                            concurrent stream support.</div>
+                        <span class="feat-tag tag-amd">AMD EPYC</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PHASE 3 -->
+            <div class="phase-col">
+                <div class="phase-header ph-p3">
+                    <div class="phase-num pn-3">3</div>
+                    <div class="phase-info">
+                        <div class="phase-name">AI-Native Platform</div>
+                        <div class="phase-time">6 – 12 months · Self-hosted AI</div>
+                    </div>
+                    <span class="phase-pill pill-3">Future</span>
+                </div>
+
+                <div class="feat-item p3">
+                    <div class="feat-icon">🔴</div>
+                    <div class="feat-content">
+                        <div class="feat-title">AMD Whisper Inference Server</div>
+                        <div class="feat-desc">Self-hosted Whisper-large-v3 on MI300X + pyannote diarization. Drop
+                            Deepgram dependency entirely.</div>
+                        <span class="feat-tag tag-amd">AMD MI300X</span>
+                    </div>
+                </div>
+
+                <div class="feat-item p3">
+                    <div class="feat-icon">🧠</div>
+                    <div class="feat-content">
+                        <div class="feat-title">Self-hosted LLM (vLLM + Llama 3)</div>
+                        <div class="feat-desc">Replace Gemini with Llama 3 70B on ROCm/vLLM. OpenAI-compatible API —
+                            only endpoint URL changes in ai.js.</div>
+                        <span class="feat-tag tag-amd">ROCm · vLLM</span>
+                    </div>
+                </div>
+
+                <div class="feat-item p3">
+                    <div class="feat-icon">📖</div>
+                    <div class="feat-content">
+                        <div class="feat-title">Meeting Chapters & Topics</div>
+                        <div class="feat-desc">Auto-detect topic shifts using LLM embeddings. Insert chapter markers and
+                            generate per-topic summaries.</div>
+                        <span class="feat-tag tag-big">AI-powered</span>
+                    </div>
+                </div>
+
+                <div class="feat-item p3">
+                    <div class="feat-icon">💳</div>
+                    <div class="feat-content">
+                        <div class="feat-title">SaaS Billing (Stripe)</div>
+                        <div class="feat-desc">Metered billing by minutes transcribed. Free tier + Pro + Enterprise
+                            plans. Full no-API-cost margins.</div>
+                        <span class="feat-tag tag-gold">Revenue</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LEGEND SIDEBAR -->
+            <div class="legend-col">
+                <div>
+                    <div class="legend-label">Tag Legend</div>
+                    <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
+                        <div class="legend-item">
+                            <div class="legend-dot" style="background:#22c55e"></div>Low effort — quick win
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-dot" style="background:#00e5ff"></div>Medium effort — planned
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-dot" style="background:#a78bfa"></div>High effort — platform
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-dot" style="background:#ED1C24"></div>AMD hardware required
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-dot" style="background:#f59e0b"></div>Revenue milestone
+                        </div>
+                    </div>
+                </div>
+
+                <div class="progress-block">
+                    <h4>Build Progress</h4>
+                    <div class="progress-row">
+                        <div class="progress-top">
+                            <span class="progress-key">Core transcription</span>
+                            <span class="progress-pct" style="color:#22c55e">100%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width:100%;background:var(--phase1)"></div>
+                        </div>
+                    </div>
+                    <div class="progress-row">
+                        <div class="progress-top">
+                            <span class="progress-key">AI Analysis</span>
+                            <span class="progress-pct" style="color:#00e5ff">90%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width:90%;background:var(--phase2)"></div>
+                        </div>
+                    </div>
+                    <div class="progress-row">
+                        <div class="progress-top">
+                            <span class="progress-key">Export (TXT/JSON/MD)</span>
+                            <span class="progress-pct" style="color:#22c55e">100%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width:100%;background:var(--phase1)"></div>
+                        </div>
+                    </div>
+                    <div class="progress-row">
+                        <div class="progress-top">
+                            <span class="progress-key">Backend + Auth</span>
+                            <span class="progress-pct" style="color:#f59e0b">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width:0%;background:var(--gold)"></div>
+                        </div>
+                    </div>
+                    <div class="progress-row">
+                        <div class="progress-top">
+                            <span class="progress-key">AMD Self-hosted AI</span>
+                            <span class="progress-pct" style="color:#a78bfa">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width:0%;background:var(--phase3)"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="vision-card">
+                    <h4>🔭 End Vision</h4>
+                    <p>A fully self-hosted, privacy-first AI meeting platform — no third-party API costs, no data
+                        leaving your infra, powered entirely by AMD's open AI stack. Enterprise-grade transcription at
+                        open-source pricing.</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Timeline bar -->
+    <div class="timeline-bar">
+        <div class="tl-segment">
+            <div class="tl-dot" style="background:var(--phase1)"></div>
+            <div>
+                <div class="tl-label">Now — Month 3</div>
+                <div class="tl-sub">Search · PDF · Offline Whisper</div>
+            </div>
+        </div>
+        <span class="tl-arrow">──────</span>
+        <div class="tl-segment">
+            <div class="tl-dot" style="background:var(--phase2)"></div>
+            <div>
+                <div class="tl-label">Month 3 – 6</div>
+                <div class="tl-sub">Auth · Teams · AMD EPYC Backend</div>
+            </div>
+        </div>
+        <span class="tl-arrow">──────</span>
+        <div class="tl-segment">
+            <div class="tl-dot" style="background:var(--phase3)"></div>
+            <div>
+                <div class="tl-label">Month 6 – 12</div>
+                <div class="tl-sub">AMD MI300X · vLLM · SaaS Launch</div>
+            </div>
+        </div>
+        <span class="tl-arrow" style="flex:1"></span>
+        <div style="font-size:0.65rem;color:var(--muted);font-family:'JetBrains Mono',monospace">Orca v1.0 → SaaS
+            Platform</div>
+    </div>
+
+    <div class="slide-nav">
+        <span class="slide-counter">03 / 03</span>
+        <a href="slide_pitch.html">← Pitch</a>
+        <a href="slide_amd.html">← AMD</a>
+    </div>
+</body>
+
+</html>
