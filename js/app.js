@@ -196,7 +196,7 @@ const Orca = (() => {
         Recorder.stop();
         UI.setRecordButton(false);
         UI.setStatus('STOPPED', false);
-        UI.stopTimer();
+        UI.resetTimer(); // zero accumulated elapsed so next recording starts from 0
 
         // Clear speaking badge
         UI.renderSpeakers(Recorder.getSpeakers(), -1);

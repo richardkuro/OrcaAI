@@ -13,6 +13,7 @@ const DeepgramEngine = (() => {
     let onTranscript = null; // (text, isFinal, speakerIndex) => void
     let currentLang = 'en-US';
     let reconnectAttempts = 0;
+    let _savedStream = null;  // kept for reconnect after long pauses
     const MAX_RECONNECT = 5;
 
     function setApiKey(key) {
@@ -45,6 +46,7 @@ const DeepgramEngine = (() => {
 
         isActive = true;
         reconnectAttempts = 0;
+        _savedStream = stream;  // keep for reconnect after long pause
 
         return connectWebSocket(stream);
     }
@@ -182,11 +184,23 @@ const DeepgramEngine = (() => {
     function pause() {
         if (dgMediaRecorder && dgMediaRecorder.state === 'recording') {
             dgMediaRecorder.pause();
-            console.log('[Deepgram] Paused');
+            console.log('[Deepgram] Paused (WS stays open)');
         }
     }
 
     function resume() {
+        // If WebSocket closed during pause (server-side inactivity), reconnect first
+        if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+            console.warn('[Deepgram] WS closed during pause — reconnecting...');
+            if (dgMediaRecorder && dgMediaRecorder.state !== 'inactive') {
+                try { dgMediaRecorder.stop(); } catch (_) { }
+            }
+            dgMediaRecorder = null;
+            reconnectAttempts = 0;
+            connectWebSocket(_savedStream);
+            return;
+        }
+        // WS still open — just resume sending audio chunks
         if (dgMediaRecorder && dgMediaRecorder.state === 'paused') {
             dgMediaRecorder.resume();
             console.log('[Deepgram] Resumed');
