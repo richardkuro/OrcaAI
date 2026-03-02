@@ -1,0 +1,13 @@
+{
+    "name": "orca-ai",
+    "version": "1.0.0",
+    "description": "Orca AI Meeting Transcriptor",
+    "main": "index.html",
+    "scripts": {
+        "start": "python -m http.server 8080",
+        "dev": "python -m http.server 8080"
+    },
+    "keywords": [],
+    "author": "Richard Konsam",
+    "license": "MIT"
+}

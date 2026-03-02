@@ -16,6 +16,10 @@ const Orca = (() => {
     async function init() {
         console.group('[Orca] Initializing...');
 
+        if (window.loadEnv) {
+            await window.loadEnv();
+        }
+
         UI.cacheElements();
         await Recorder.loadMics();
 
@@ -67,7 +71,7 @@ const Orca = (() => {
         updateEngineNote();
 
         // ── Configure Deepgram (transcription + AI analysis) ──
-        let dgKey = sessionStorage.getItem('mm_deepgram_key');
+        let dgKey = window.ENV?.DEEPGRAM_API_KEY || window.ENV?.DEEPGRAM_KEY || sessionStorage.getItem('mm_deepgram_key');
         if (!dgKey) {
             dgKey = window.prompt("Enter your Deepgram API Key for AI features (or cancel to use free Browser engine):") || '';
             if (dgKey) sessionStorage.setItem('mm_deepgram_key', dgKey);
@@ -116,11 +120,12 @@ const Orca = (() => {
         updateEngineNote();
 
         if (engine === 'deepgram' && !DeepgramEngine.isEnabled()) {
-            const key = prompt('Enter your Deepgram API key (get free at console.deepgram.com):');
+            const envKey = window.ENV?.DEEPGRAM_API_KEY || window.ENV?.DEEPGRAM_KEY;
+            const key = envKey || prompt('Enter your Deepgram API key (get free at console.deepgram.com):');
             if (key && key.trim()) {
                 DeepgramEngine.setApiKey(key.trim());
                 AI.setDeepgramKey(key.trim());
-                sessionStorage.setItem('mm_deepgram_key', key.trim());
+                if (!envKey) sessionStorage.setItem('mm_deepgram_key', key.trim());
                 updateEngineNote();
             }
         }

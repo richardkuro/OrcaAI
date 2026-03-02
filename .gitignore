@@ -1,0 +1,6 @@
+.env
+error.log
+.vscode/
+node_modules/
+.vercel/
+*.log
