@@ -1292,3 +1292,217 @@ canvas#viz {
   border-color: var(--accent);
   color: var(--accent);
 }
+
+.analysis-global {
+  margin-bottom: 4px;
+}
+
+.analysis-global-text {
+  font-size: 0.8rem;
+  line-height: 1.65;
+  color: var(--text);
+  opacity: 0.9;
+  margin: 0;
+  padding: 0;
+}
+
+
+/* ============================================================
+   Per-speaker Analysis Cards
+   ============================================================ */
+.speaker-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.speaker-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface2);
+  transition: border-color 0.2s;
+}
+
+.speaker-card:hover {
+  border-color: rgba(56, 189, 248, 0.25);
+}
+
+.speaker-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.speaker-card-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.speaker-card-name {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  flex: 1;
+}
+
+.speaker-card-stats {
+  font-size: 0.6rem;
+  color: var(--muted);
+}
+
+.speaker-card-body {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+
+
+
+.speaker-card-label {
+  font-size: 0.6rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 5px;
+}
+
+.speaker-card-text {
+  font-size: 0.77rem;
+  line-height: 1.6;
+  color: var(--text);
+  opacity: 0.85;
+}
+
+.speaker-keypoints {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 0;
+}
+
+.speaker-keypoints li {
+  font-size: 0.73rem;
+  line-height: 1.5;
+  color: var(--text);
+  opacity: 0.8;
+  padding-left: 12px;
+  position: relative;
+}
+
+.speaker-keypoints li::before {
+  content: '›';
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  opacity: 0.7;
+}
+
+/* ============================================================
+   Emotion / Sentiment Charts
+   ============================================================ */
+#emotionChartsSection {
+  margin-top: 6px;
+}
+
+.emotion-charts-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.emotion-speaker-select-wrap {
+  flex: 1;
+  min-width: 140px;
+}
+
+.emotion-speaker-select {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  appearance: none;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.emotion-speaker-select:focus {
+  border-color: var(--accent);
+}
+
+
+.emo-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  vertical-align: middle;
+  margin-right: 3px;
+}
+
+.emotion-chart-wrap {
+  margin-bottom: 20px;
+}
+
+.emotion-chart-label {
+  font-size: 0.68rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.emotion-canvas {
+  width: 100% !important;
+  height: 140px !important;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border);
+  display: block;
+}
+
+/* Light mode overrides */
+[data-theme="light"] .speaker-card {
+  background: var(--surface);
+}
+
+[data-theme="light"] .speaker-card-header {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .emotion-canvas {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .badge-deepgram {
+  background: rgba(2, 132, 199, 0.1);
+  color: var(--accent2);
+  border-color: rgba(2, 132, 199, 0.25);
+}
+
+[data-theme="light"] .badge-local {
+  background: rgba(124, 58, 237, 0.1);
+  color: #7c3aed;
+  border-color: rgba(124, 58, 237, 0.25);
+}

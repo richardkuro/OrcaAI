@@ -1,278 +1,362 @@
 /* ============================================================
-   ai.js — AI summarization, key points, tone analysis
-   Dual mode: Local (no API) or Gemini API
+   ai.js — AI analysis via Deepgram Audio Intelligence
+   POST-recording: summarize=v2, sentiment, topics (per speaker)
+   LOCAL fallback: keyword-based (instant, no API call)
    ============================================================ */
 
 const AI = (() => {
     'use strict';
 
-    let apiKey = null;
-    let enabled = false;       // API enabled
-    let localMode = true;      // Always available as fallback
+    let _dgKey = null;          // Deepgram API key (set from app.js)
+    let _cache = null;          // cached last analysis result
 
-    function setApiKey(key) {
-        apiKey = key;
-        enabled = !!key;
-        console.log('[AI] Mode:', enabled ? 'Gemini API' : 'Local (no API)');
+    function setDeepgramKey(key) {
+        _dgKey = key;
+        console.log('[AI] Deepgram key', key ? 'ready' : 'cleared');
     }
 
-    function isEnabled() { return true; } // Always enabled (local fallback)
-    function hasApiKey() { return enabled; }
-
     // ══════════════════════════════════════════════════════
-    //  LOCAL SUMMARIZATION (No API needed, runs instantly)
+    //  DEEPGRAM AUDIO INTELLIGENCE  (pre-recorded REST)
+    //  Called after stop with the recorded WebM blob
     // ══════════════════════════════════════════════════════
 
-    function localSummarize(entries) {
-        if (!entries.length) return { summary: 'No transcript yet.', keypoints: [], tone: '' };
+    async function deepgramAnalyze(blob, speakerMap, entries) {
+        if (!_dgKey || !blob) throw new Error('no_key_or_blob');
 
-        // Group by speaker
+        const params = new URLSearchParams({
+            model: 'nova-2',
+            summarize: 'v2',
+            sentiment: 'true',
+            topics: 'true',
+            diarize: 'true',
+            punctuate: 'true',
+            smart_format: 'true',
+        });
+
+        const res = await fetch(`https://api.deepgram.com/v1/listen?${params}`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Token ${_dgKey}`,
+                'Content-Type': blob.type || 'audio/webm',
+            },
+            body: blob,
+        });
+
+        if (!res.ok) {
+            const errText = await res.text().catch(() => '');
+            throw new Error(`Deepgram AI error (${res.status}): ${errText.substring(0, 200)}`);
+        }
+
+        const data = await res.json();
+        return parseDgResponse(data, speakerMap, entries);
+    }
+
+    function parseDgResponse(data, speakerMap, entries) {
+        const results = data?.results || {};
+        const channel = results?.channels?.[0]?.alternatives?.[0] || {};
+        const summaryObj = results?.summary || {};
+        const topics = results?.topics?.segments || [];
+        const sentimentSegs = results?.sentiments?.segments || [];
+        const averageSentiment = results?.sentiments?.average || {};
+
+        // ── Map Deepgram speaker indices → speaker names ──
+        // speakerMap is our Recorder.getSpeakers() array: [{id, name, color, count}...]
+        // dgSpeakerMap (passed from recorder): DG index → speaker id
+        // We rebuild a simpler: speakerName per entry using the entries we already have
         const bySpeaker = {};
         entries.forEach(e => {
             if (!bySpeaker[e.speakerName]) bySpeaker[e.speakerName] = [];
             bySpeaker[e.speakerName].push(e);
         });
+        const speakerNames = Object.keys(bySpeaker);
 
+        // ── Global summary ──
+        const globalSummary = summaryObj?.short || channel?.transcript?.slice(0, 300) || 'No summary available.';
+
+        // ── Per-speaker summaries from local entries (DG free tier doesn't separate by speaker in summary) ──
+        const perSpeaker = speakerNames.map(name => {
+            const spEntries = bySpeaker[name];
+            const spText = spEntries.map(e => e.text).join(' ');
+            const wordCount = spEntries.reduce((s, e) => s + e.text.split(/\s+/).length, 0);
+
+            // Extract local key points for this speaker
+            const keypoints = extractLocalKeyPoints(spEntries, 5);
+
+            // Find speaker color
+            const spObj = speakerMap.find(s => s.name === name);
+            const color = spObj?.color || '#00e5ff';
+
+            return { name, color, summary: null, keypoints, wordCount, entryCount: spEntries.length, text: spText };
+        });
+
+        // ── Sentiment timeline ──
+        // Build timeline from DG sentiment segments if available, else from local tone
+        let timeline = [];
+
+        if (sentimentSegs.length > 0) {
+            // DG provides: { text, start, end, sentiment, sentiment_score }
+            // We need to map to speaker — use the entries array by timestamp overlap
+            sentimentSegs.forEach(seg => {
+                // Find closest entry by position in transcript
+                const globalScore = seg.sentiment_score ?? sentimentToScore(seg.sentiment);
+                const speakerName = findSpeakerForSegment(seg, entries) || speakerNames[0] || 'Speaker 1';
+                const color = speakerMap.find(s => s.name === speakerName)?.color || '#00e5ff';
+                timeline.push({
+                    time: formatSeconds(seg.start),
+                    startSec: seg.start,
+                    speakerName,
+                    color,
+                    sentiment: seg.sentiment || 'neutral',
+                    score: globalScore,
+                    text: seg.text?.slice(0, 60) || '',
+                });
+            });
+        } else {
+            // Local fallback: build from entries with tone→score mapping
+            timeline = buildLocalTimeline(entries, speakerMap);
+        }
+
+        // ── Topics → global key points ──
+        const globalKeypoints = [];
+        topics.forEach(seg => {
+            seg.topics?.forEach(t => {
+                if (t.topic) globalKeypoints.push(t.topic);
+            });
+        });
+        if (globalKeypoints.length === 0) {
+            globalKeypoints.push(...extractLocalKeyPoints(entries, 6));
+        }
+
+        // Attach DG summary to perSpeaker (distribute global summary by proportion)
+        perSpeaker.forEach(sp => {
+            sp.summary = buildSpeakerSummary(sp, entries.length);
+        });
+
+        return {
+            globalSummary,
+            globalKeypoints,
+            perSpeaker,     // [{name, color, summary, keypoints, wordCount, entryCount}]
+            timeline,        // [{time, startSec, speakerName, color, sentiment, score}]
+            source: 'deepgram',
+        };
+    }
+
+    // Find which speaker in our entries most likely said a DG sentiment segment
+    // (rough match by text proximity / word overlap)
+    function findSpeakerForSegment(seg, entries) {
+        if (!seg.text || entries.length === 0) return null;
+        const segWords = new Set(seg.text.toLowerCase().split(/\s+/).filter(w => w.length > 3));
+        let bestScore = 0;
+        let bestSpeaker = entries[0]?.speakerName || null;
+
+        entries.forEach(e => {
+            const eWords = e.text.toLowerCase().split(/\s+/);
+            let hits = 0;
+            eWords.forEach(w => { if (segWords.has(w)) hits++; });
+            if (hits > bestScore) { bestScore = hits; bestSpeaker = e.speakerName; }
+        });
+        return bestSpeaker;
+    }
+
+    function sentimentToScore(sentiment) {
+        return sentiment === 'positive' ? 0.6 : sentiment === 'negative' ? -0.6 : 0;
+    }
+
+    function formatSeconds(sec) {
+        if (sec == null) return '';
+        const m = String(Math.floor(sec / 60)).padStart(2, '0');
+        const s = String(Math.floor(sec % 60)).padStart(2, '0');
+        return `${m}:${s}`;
+    }
+
+    function buildSpeakerSummary(sp, totalEntries) {
+        const pct = Math.round(sp.entryCount / Math.max(totalEntries, 1) * 100);
+        return `${sp.name} contributed ${sp.entryCount} statements (~${sp.wordCount} words, ${pct}% of conversation). ` +
+            `Primary topics: ${sp.keypoints.slice(0, 2).join('; ') || 'general discussion'}.`;
+    }
+
+    // ══════════════════════════════════════════════════════
+    //  LOCAL FALLBACK  (instant, no network)
+    // ══════════════════════════════════════════════════════
+
+    const TONE_SCORE = {
+        excited: 0.8, happy: 0.6, neutral: 0, serious: -0.1,
+        confused: -0.3, sad: -0.6, angry: -0.8,
+    };
+
+    const IMPORTANT_WORDS = new Set([
+        'important', 'critical', 'urgent', 'deadline', 'decide', 'decision',
+        'agree', 'agreed', 'action', 'must', 'should', 'need', 'priority',
+        'next', 'plan', 'goal', 'result', 'conclusion', 'propose', 'proposal',
+        'approve', 'approval', 'budget', 'schedule', 'milestone', 'risk',
+        'issue', 'problem', 'solution', 'resolved', 'fix', 'update',
+        'launch', 'release', 'deploy', 'deliver', 'complete', 'finish',
+    ]);
+
+    function localAnalyze(entries, speakerMap) {
+        if (!entries.length) {
+            return {
+                globalSummary: 'No transcript yet.',
+                globalKeypoints: [],
+                perSpeaker: [],
+                timeline: [],
+                source: 'local',
+            };
+        }
+
+        const bySpeaker = {};
+        entries.forEach(e => {
+            if (!bySpeaker[e.speakerName]) bySpeaker[e.speakerName] = [];
+            bySpeaker[e.speakerName].push(e);
+        });
         const speakerNames = Object.keys(bySpeaker);
         const totalWords = entries.reduce((s, e) => s + e.text.split(/\s+/).length, 0);
-        const duration = entries.length > 0 ?
-            `from ${entries[0].time} to ${entries[entries.length - 1].time}` : '';
+        const duration = entries.length > 0
+            ? `${entries[0].time} → ${entries[entries.length - 1].time}` : '';
 
-        // ── Summary ──
-        const speakerParts = speakerNames.map(name => {
-            const count = bySpeaker[name].length;
-            const words = bySpeaker[name].reduce((s, e) => s + e.text.split(/\s+/).length, 0);
-            return `${name} (${count} statements, ~${words} words)`;
+        // Global summary
+        const speakerParts = speakerNames.map(n => {
+            const c = bySpeaker[n].length;
+            const w = bySpeaker[n].reduce((s, e) => s + e.text.split(/\s+/).length, 0);
+            return `${n} (${c} statements, ~${w} words)`;
         });
-        const summary = `Meeting with ${speakerNames.length} speaker(s): ${speakerParts.join(', ')}. ` +
-            `Total: ${entries.length} transcript entries, ~${totalWords} words ${duration}. ` +
-            getMeetingFlow(entries);
+        const globalSummary = `Meeting with ${speakerNames.length} speaker(s): ${speakerParts.join(', ')}. ` +
+            `Total: ${entries.length} entries, ~${totalWords} words (${duration}).`;
 
-        // ── Key Points (extract important sentences) ──
-        const keypoints = extractKeyPoints(entries);
-
-        // ── Tone ──
-        const toneCounts = {};
-        entries.forEach(e => { toneCounts[e.tone] = (toneCounts[e.tone] || 0) + 1; });
-        const sorted = Object.entries(toneCounts).sort((a, b) => b[1] - a[1]);
-        const toneLines = sorted.map(([t, c]) =>
-            `${t}: ${c} entries (${Math.round(c / entries.length * 100)}%)`
-        );
-
-        const speakerTones = speakerNames.map(name => {
-            const sTones = {};
-            bySpeaker[name].forEach(e => { sTones[e.tone] = (sTones[e.tone] || 0) + 1; });
-            const top = Object.entries(sTones).sort((a, b) => b[1] - a[1])[0];
-            return `${name}: primarily ${top ? top[0] : 'neutral'}`;
+        // Per-speaker
+        const perSpeaker = speakerNames.map(name => {
+            const spEntries = bySpeaker[name];
+            const wordCount = spEntries.reduce((s, e) => s + e.text.split(/\s+/).length, 0);
+            const pct = Math.round(spEntries.length / entries.length * 100);
+            const topTone = getTopTone(spEntries);
+            const summary = `${name} made ${spEntries.length} statements (~${wordCount} words, ${pct}% of conversation). Tone: primarily ${topTone}.`;
+            const keypoints = extractLocalKeyPoints(spEntries, 5);
+            const color = speakerMap.find(s => s.name === name)?.color || '#00e5ff';
+            return { name, color, summary, keypoints, wordCount, entryCount: spEntries.length };
         });
 
-        const tone = `Overall distribution:\n${toneLines.join('\n')}\n\nBy speaker:\n${speakerTones.join('\n')}`;
+        // Global key points
+        const globalKeypoints = extractLocalKeyPoints(entries, 6);
 
-        return { summary, keypoints, tone };
+        // Sentiment timeline from tone
+        const timeline = buildLocalTimeline(entries, speakerMap);
+
+        return { globalSummary, globalKeypoints, perSpeaker, timeline, source: 'local' };
     }
 
-    function getMeetingFlow(entries) {
-        if (entries.length < 3) return '';
-        const third = Math.floor(entries.length / 3);
-        const segments = [
-            entries.slice(0, third),
-            entries.slice(third, third * 2),
-            entries.slice(third * 2),
-        ];
-        const toneOf = seg => {
-            const tc = {};
-            seg.forEach(e => { tc[e.tone] = (tc[e.tone] || 0) + 1; });
-            return Object.entries(tc).sort((a, b) => b[1] - a[1])[0]?.[0] || 'neutral';
-        };
-        return `The meeting began ${toneOf(segments[0])}, continued ${toneOf(segments[1])}, and ended ${toneOf(segments[2])}.`;
+    function buildLocalTimeline(entries, speakerMap) {
+        return entries.map((e, i) => {
+            const color = speakerMap.find(s => s.name === e.speakerName)?.color || '#00e5ff';
+            const score = TONE_SCORE[e.tone] ?? 0;
+            return {
+                time: e.time,
+                startSec: i,        // fake seconds index when no DG timestamps
+                speakerName: e.speakerName,
+                color,
+                sentiment: toneToSentiment(e.tone),
+                score,
+                text: e.text.slice(0, 60),
+            };
+        });
     }
 
-    function extractKeyPoints(entries) {
-        // Score sentences by importance keywords
-        const importantWords = new Set([
-            'important', 'critical', 'urgent', 'deadline', 'decide', 'decision',
-            'agree', 'agreed', 'action', 'must', 'should', 'need', 'priority',
-            'next', 'plan', 'goal', 'result', 'conclusion', 'propose', 'proposal',
-            'approve', 'approval', 'budget', 'schedule', 'milestone', 'risk',
-            'issue', 'problem', 'solution', 'resolved', 'fix', 'update',
-            'launch', 'release', 'deploy', 'deliver', 'complete', 'finish',
-        ]);
+    function toneToSentiment(tone) {
+        if (tone === 'happy' || tone === 'excited') return 'positive';
+        if (tone === 'angry' || tone === 'sad') return 'negative';
+        return 'neutral';
+    }
 
+    function getTopTone(entries) {
+        const tc = {};
+        entries.forEach(e => { tc[e.tone] = (tc[e.tone] || 0) + 1; });
+        return Object.entries(tc).sort((a, b) => b[1] - a[1])[0]?.[0] || 'neutral';
+    }
+
+    function extractLocalKeyPoints(entries, max = 5) {
         const scored = entries.map(e => {
             const words = e.text.toLowerCase().split(/\s+/);
             let score = 0;
-            words.forEach(w => { if (importantWords.has(w)) score += 2; });
+            words.forEach(w => { if (IMPORTANT_WORDS.has(w)) score += 2; });
             if (e.tone === 'serious') score += 3;
             if (e.tone === 'excited') score += 1;
             if (e.text.includes('?')) score += 1;
-            score += Math.min(words.length / 10, 2); // Longer sentences slightly preferred
+            score += Math.min(words.length / 10, 2);
             return { entry: e, score };
-        });
+        }).sort((a, b) => b.score - a.score);
 
-        scored.sort((a, b) => b.score - a.score);
-
-        // Take top 5-7 unique
         const seen = new Set();
         const points = [];
         for (const { entry } of scored) {
-            const normalized = entry.text.toLowerCase().trim();
-            if (seen.has(normalized) || normalized.length < 10) continue;
-            seen.add(normalized);
-            points.push(`[${entry.speakerName}]: "${entry.text}"`);
-            if (points.length >= 7) break;
+            const norm = entry.text.toLowerCase().trim();
+            if (seen.has(norm) || norm.length < 10) continue;
+            seen.add(norm);
+            // Return clean text — capitalize first letter, ensure ends with period
+            let text = entry.text.trim();
+            text = text.charAt(0).toUpperCase() + text.slice(1);
+            if (!/[.!?]$/.test(text)) text += '.';
+            points.push(text);
+            if (points.length >= max) break;
         }
         return points.length ? points : ['No significant key points detected.'];
     }
 
-    // ══════════════════════════════════════════════════════
-    //  GEMINI API — with rate limiting (free tier: 15 RPM)
-    //  Min 5s between calls, exponential backoff on 429
-    // ══════════════════════════════════════════════════════
-
-    const RATE_LIMIT_MS = 5000;   // min ms between Gemini calls (5s → max 12 RPM, safe under 15)
-    const MAX_RETRIES = 3;
-    let lastGeminiCall = 0;      // timestamp of last successful call
-    let geminiQueue = Promise.resolve(); // serialise concurrent requests
-
-    function waitForRateLimit() {
-        const now = Date.now();
-        const wait = Math.max(0, RATE_LIMIT_MS - (now - lastGeminiCall));
-        return new Promise(resolve => setTimeout(resolve, wait));
-    }
-
-    async function callGeminiOnce(prompt) {
-        await waitForRateLimit();
-        lastGeminiCall = Date.now();
-
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-        const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { maxOutputTokens: 1500, temperature: 0.5 },
-            }),
-        });
-
-        if (res.status === 429) {
-            // Rate limited — back off based on Retry-After header or default
-            const retryAfter = parseInt(res.headers.get('Retry-After') || '15', 10);
-            console.warn(`[AI] Gemini rate limited. Retrying after ${retryAfter}s...`);
-            await new Promise(r => setTimeout(r, retryAfter * 1000));
-            throw new Error('rate_limited'); // signal retry
-        }
-
-        if (!res.ok) {
-            const errText = await res.text().catch(() => '');
-            throw new Error(`Gemini API error (${res.status}): ${errText.substring(0, 150)}`);
-        }
-        const data = await res.json();
-        return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    }
-
-    async function callGemini(prompt) {
-        // Serialise via queue so concurrent UI actions don't fire parallel requests
-        geminiQueue = geminiQueue.then(async () => {
-            let delay = 2000;
-            for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-                try {
-                    return await callGeminiOnce(prompt);
-                } catch (e) {
-                    if (e.message === 'rate_limited' && attempt < MAX_RETRIES) {
-                        await new Promise(r => setTimeout(r, delay));
-                        delay *= 2; // exponential backoff
-                        continue;
-                    }
-                    throw e;
-                }
-            }
-        });
-        return geminiQueue;
-    }
-
-    function buildTranscriptText(entries) {
-        return entries.map(e => `[${e.speakerName}] (${e.tone}): ${e.text}`).join('\n');
-    }
-
-    async function geminiAnalyze(entries) {
-        const txt = buildTranscriptText(entries);
-        const result = await callGemini(
-            `Analyze this meeting transcript. Provide ALL of the following in ONE response:
-
-SUMMARY:
-[3-5 sentence summary]
-
-KEY POINTS:
-1. [point]
-2. [point]
-...
-
-TONE:
-[tone analysis by speaker]
-
-Transcript:
-${txt}`
-        );
-
-        const summaryMatch = result.match(/SUMMARY:\s*([\s\S]*?)(?=KEY POINTS:|$)/i);
-        const keypointsMatch = result.match(/KEY POINTS:\s*([\s\S]*?)(?=TONE:|$)/i);
-        const toneMatch = result.match(/TONE:\s*([\s\S]*?)$/i);
-
-        const summary = summaryMatch ? summaryMatch[1].trim() : result;
-        const keypoints = [];
-        if (keypointsMatch) {
-            keypointsMatch[1].trim().split('\n').forEach(line => {
-                const cleaned = line.replace(/^\d+\.\s*/, '').trim();
-                if (cleaned) keypoints.push(cleaned);
-            });
-        }
-        return { summary, keypoints, tone: toneMatch ? toneMatch[1].trim() : '' };
-    }
 
     // ══════════════════════════════════════════════════════
-    //  PUBLIC API (tries Gemini first, falls back to local)
+    //  PUBLIC API
     // ══════════════════════════════════════════════════════
 
-    let cachedAnalysis = null;
-    let cachedCount = 0;
-
-    async function getAnalysis(entries) {
-        if (cachedAnalysis && entries.length === cachedCount) return cachedAnalysis;
-
-        if (enabled) {
-            try {
-                cachedAnalysis = await geminiAnalyze(entries);
-                cachedCount = entries.length;
-                console.log('[AI] Gemini analysis complete');
-                return cachedAnalysis;
-            } catch (e) {
-                console.warn('[AI] Gemini failed, using local:', e.message);
-            }
-        }
-        // Local fallback (always works)
-        cachedAnalysis = localSummarize(entries);
-        cachedCount = entries.length;
-        console.log('[AI] Local analysis complete');
-        return cachedAnalysis;
-    }
-
-    async function summarize(entries) { return (await getAnalysis(entries)).summary; }
-    async function extractKeyPointsPublic(entries) { return (await getAnalysis(entries)).keypoints; }
-    async function analyzeTones(entries) { return (await getAnalysis(entries)).tone || 'No data.'; }
-
-    async function autoAnalyze(entries) {
+    async function analyze(blob, speakerMap, entries) {
         if (!entries.length) return null;
-        console.log('[AI] Auto-analyzing meeting...');
-        const a = await getAnalysis(entries);
-        return { summary: a.summary, keypoints: a.keypoints };
+
+        // Try Deepgram AI intelligence first
+        if (_dgKey && blob) {
+            try {
+                console.log('[AI] Sending audio to Deepgram for AI analysis...');
+                _cache = await deepgramAnalyze(blob, speakerMap, entries);
+                console.log('[AI] Deepgram AI analysis complete');
+                return _cache;
+            } catch (e) {
+                console.warn('[AI] Deepgram analysis failed, using local:', e.message);
+            }
+        }
+
+        // Local fallback
+        console.log('[AI] Running local analysis...');
+        _cache = localAnalyze(entries, speakerMap);
+        return _cache;
+    }
+
+    function getCache() { return _cache; }
+
+    // Legacy shims so buttons in app.js still work without change
+    async function summarize(entries) {
+        return _cache?.globalSummary || localAnalyze(entries, []).globalSummary;
+    }
+    async function extractKeyPoints(entries) {
+        return _cache?.globalKeypoints || localAnalyze(entries, []).globalKeypoints;
+    }
+    async function analyzeTones(entries) {
+        if (!_cache) return 'No analysis yet. Stop recording to generate analysis.';
+        return _cache.timeline.length + ' sentiment data points collected. See chart below.';
+    }
+    async function autoAnalyze(entries) {
+        // Called immediately after stop — but blob may not be ready yet.
+        // Real analysis is triggered with blob in app.js doStop flow.
+        if (!entries.length) return null;
+        const local = localAnalyze(entries, []);
+        return { summary: local.globalSummary, keypoints: local.globalKeypoints };
     }
 
     return {
-        setApiKey,
-        isEnabled,
-        hasApiKey,
+        setDeepgramKey,
+        analyze,
+        getCache,
+        // Legacy API (used by button handlers)
+        setApiKey: () => { },   // no-op — kept so old refs don't crash
+        isEnabled: () => true,
+        hasApiKey: () => !!_dgKey,
         summarize,
-        extractKeyPoints: extractKeyPointsPublic,
+        extractKeyPoints,
         analyzeTones,
         autoAnalyze,
     };

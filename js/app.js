@@ -66,30 +66,21 @@ const Orca = (() => {
         // Check browser speech support and update UI
         updateEngineNote();
 
-        // ── DEMO MODE: API keys hardcoded ──
-        const DEMO_DEEPGRAM_KEY = '8e44c11077a58f718d1b46940775d00534d7020c';
-        const DEMO_GEMINI_KEY = 'AIzaSyBoIS4xgdArJNOxoO_0Hq116YEY1QBsHIw';
+        // ── Configure Deepgram (transcription + AI analysis) ──
+        let dgKey = sessionStorage.getItem('mm_deepgram_key');
+        if (!dgKey) {
+            dgKey = window.prompt("Enter your Deepgram API Key for AI features (or cancel to use free Browser engine):") || '';
+            if (dgKey) sessionStorage.setItem('mm_deepgram_key', dgKey);
+        }
 
-        // Auto-configure Deepgram (no prompt)
-        const dgKey = sessionStorage.getItem('mm_deepgram_key') || DEMO_DEEPGRAM_KEY;
         DeepgramEngine.setApiKey(dgKey);
-        sessionStorage.setItem('mm_deepgram_key', dgKey);
-        console.log('[Orca] Deepgram configured (voice diarization enabled)');
+        AI.setDeepgramKey(dgKey);        // share key with AI module for post-analysis
 
-        // Set Deepgram as default engine
         engineSelect.value = 'deepgram';
         Recorder.setEngine('deepgram');
         updateEngineNote();
 
-        // Auto-configure Gemini (no modal)
-        const geminiKey = sessionStorage.getItem('mm_api_key') || DEMO_GEMINI_KEY;
-        AI.setApiKey(geminiKey);
-        sessionStorage.setItem('mm_api_key', geminiKey);
-        console.log('[Orca] Gemini key loaded (demo mode)');
-        // Skip API key modal in demo mode
-        // UI.showApiKeyModal();
-
-        console.log('[Orca] Ready');
+        console.log('[Orca] Ready — no external AI key required');
         console.groupEnd();
     }
 
@@ -108,11 +99,11 @@ const Orca = (() => {
             note.style.color = 'var(--muted)';
         } else if (engine === 'deepgram') {
             note.style.display = 'block';
-            note.innerHTML = '✅ Deepgram active — <strong>voice diarization ON</strong>. Speakers detected by voice. Uncensored. Works in all browsers.';
+            note.innerHTML = '✅ Deepgram active — <strong>voice diarization + AI analysis ON</strong>. Speakers detected by voice.';
             note.style.color = '#22c55e';
         } else if (engine === 'browser') {
             note.style.display = 'block';
-            note.innerHTML = 'ℹ️ Browser engine: Chrome/Edge only. Gap-based speaker detection. Some words may be censored.';
+            note.innerHTML = 'ℹ️ Browser engine: Chrome/Edge only. Gap-based speaker detection. AI analysis uses local mode.';
             note.style.color = 'var(--muted)';
         } else {
             note.style.display = 'none';
@@ -125,30 +116,14 @@ const Orca = (() => {
         updateEngineNote();
 
         if (engine === 'deepgram' && !DeepgramEngine.isEnabled()) {
-            // Prompt for Deepgram key
             const key = prompt('Enter your Deepgram API key (get free at console.deepgram.com):');
             if (key && key.trim()) {
                 DeepgramEngine.setApiKey(key.trim());
+                AI.setDeepgramKey(key.trim());
                 sessionStorage.setItem('mm_deepgram_key', key.trim());
                 updateEngineNote();
             }
         }
-    }
-
-    // ── API key handling ──
-    function saveApiKey() {
-        const key = document.getElementById('apiKeyInput').value.trim();
-        if (!key) return;
-        AI.setApiKey(key);
-        sessionStorage.setItem('mm_api_key', key);
-        UI.hideApiKeyModal();
-        console.log('[Orca] API key saved to session');
-    }
-
-    function skipApiKey() {
-        AI.setApiKey(null);
-        UI.hideApiKeyModal();
-        console.log('[Orca] AI features skipped');
     }
 
     // ── Recording controls ──
@@ -158,12 +133,10 @@ const Orca = (() => {
             UI.setRecordButton(true);
             UI.setStatus('RECORDING', true);
             UI.startTimer();
-            // Show controls
             document.getElementById('pauseBtn').style.display = 'block';
             document.getElementById('exportWebmBtn').style.display = 'block';
             document.getElementById('exportMp3Btn').style.display = 'block';
         } else {
-            // Show stop confirmation
             document.getElementById('stopConfirmModal').classList.add('visible');
         }
     }
@@ -179,7 +152,6 @@ const Orca = (() => {
             pauseBtn.title = 'Resume';
             pauseBtn.style.color = 'var(--success)';
             pauseBtn.style.borderColor = 'var(--success)';
-            // Clear speaking badge
             UI.renderSpeakers(Recorder.getSpeakers(), -1);
         } else {
             Recorder.resume();
@@ -196,12 +168,10 @@ const Orca = (() => {
         Recorder.stop();
         UI.setRecordButton(false);
         UI.setStatus('STOPPED', false);
-        UI.resetTimer(); // zero accumulated elapsed so next recording starts from 0
+        UI.resetTimer();
 
-        // Clear speaking badge
         UI.renderSpeakers(Recorder.getSpeakers(), -1);
 
-        // Reset pause button
         const pauseBtn = document.getElementById('pauseBtn');
         pauseBtn.textContent = '⏸';
         pauseBtn.title = 'Pause';
@@ -209,7 +179,7 @@ const Orca = (() => {
         pauseBtn.style.borderColor = '';
         pauseBtn.style.display = 'none';
 
-        // Auto-analyze (works with or without API key)
+        // Run AI analysis (Deepgram REST or local fallback)
         autoAnalyzeOnStop();
     }
 
@@ -233,41 +203,63 @@ const Orca = (() => {
         UI.updateStats(wordCount, entries.length, speakers.length, toneCounts);
     }
 
-    // ── AI actions ──
+    // ── AI analysis on stop ──
     async function autoAnalyzeOnStop() {
         if (!entries.length) return;
 
-        UI.showLoading('Auto-analyzing meeting');
+        UI.showLoading('Analyzing…');
+
+        // Wait for the export recorder to finish (onstop fires async)
+        await new Promise(r => setTimeout(r, 600));
+
+        const blob = Recorder.getRecordedBlob();
+        const speakers = Recorder.getSpeakers();
+
         try {
-            const result = await AI.autoAnalyze(entries);
-            if (result) {
-                summary = result.summary;
-                keypoints = result.keypoints;
+            const result = await AI.analyze(blob, speakers, entries);
+            if (!result) return;
 
-                document.getElementById('summaryContent').textContent = summary;
+            summary = result.globalSummary;
+            keypoints = result.globalKeypoints;
 
-                if (keypoints.length) {
-                    document.getElementById('keypointsList').innerHTML =
-                        `<div class="keypoints"><div class="keypoints-title">Key Points & Action Items</div>` +
-                        keypoints.map((p, i) =>
-                            `<div class="keypoint-item"><div class="keypoint-num">${i + 1}.</div><div>${Transcript.esc(p)}</div></div>`
-                        ).join('') + `</div>`;
-                }
-            }
+            // Auto-show: summary only. Key points and charts are on-demand.
+            UI.renderAnalysis(result);
+            setActiveAIButton('summarizeBtn');
+
+            console.log('[Orca] AI analysis complete (source:', result.source, ')');
         } catch (e) {
-            console.error('[Orca] Auto-analyze error:', e);
+            console.error('[Orca] Analysis error:', e);
             document.getElementById('summaryContent').textContent =
-                'Could not generate auto-summary. You can try again with the buttons above.\n\nError: ' + e.message;
+                'Analysis failed: ' + e.message;
         }
     }
 
+    // ── Active button state ──
+    function setActiveAIButton(activeId) {
+        ['summarizeBtn', 'keypointsBtn', 'toneBtn'].forEach(id => {
+            const btn = document.getElementById(id);
+            if (id === activeId) {
+                btn.classList.add('primary');
+            } else {
+                btn.classList.remove('primary');
+            }
+        });
+    }
+
+    // ── Manual AI buttons ──
     async function doSummarize() {
         if (!entries.length) return;
-
+        setActiveAIButton('summarizeBtn');
         UI.showLoading('Generating summary');
         try {
-            summary = await AI.summarize(entries);
-            document.getElementById('summaryContent').textContent = summary;
+            const cached = AI.getCache();
+            if (cached) {
+                UI.renderAnalysis(cached);
+            } else {
+                const blob = Recorder.getRecordedBlob();
+                const result = await AI.analyze(blob, Recorder.getSpeakers(), entries);
+                if (result) { summary = result.globalSummary; UI.renderAnalysis(result); }
+            }
         } catch (e) {
             document.getElementById('summaryContent').textContent = 'Error: ' + e.message;
         }
@@ -275,16 +267,17 @@ const Orca = (() => {
 
     async function doKeyPoints() {
         if (!entries.length) return;
-
+        setActiveAIButton('keypointsBtn');
         UI.showLoading('Extracting key points');
         try {
-            keypoints = await AI.extractKeyPoints(entries);
-            document.getElementById('summaryContent').textContent = 'Key points extracted below:';
-            document.getElementById('keypointsList').innerHTML =
-                `<div class="keypoints"><div class="keypoints-title">Key Points & Action Items</div>` +
-                keypoints.map((p, i) =>
-                    `<div class="keypoint-item"><div class="keypoint-num">${i + 1}.</div><div>${Transcript.esc(p)}</div></div>`
-                ).join('') + `</div>`;
+            const cached = AI.getCache();
+            if (cached) {
+                UI.renderKeyPoints(cached);
+            } else {
+                const blob = Recorder.getRecordedBlob();
+                const result = await AI.analyze(blob, Recorder.getSpeakers(), entries);
+                if (result) { keypoints = result.globalKeypoints; UI.renderKeyPoints(result); }
+            }
         } catch (e) {
             document.getElementById('summaryContent').textContent = 'Error: ' + e.message;
         }
@@ -292,12 +285,18 @@ const Orca = (() => {
 
     async function doToneReport() {
         if (!entries.length) return;
-
-        UI.showLoading('Analyzing communication tones');
+        setActiveAIButton('toneBtn');
+        UI.showLoading('Loading emotion charts');
         try {
-            const result = await AI.analyzeTones(entries);
-            document.getElementById('summaryContent').textContent = result;
-            document.getElementById('keypointsList').innerHTML = '';
+            const speakers = Recorder.getSpeakers();
+            const cached = AI.getCache();
+            if (cached) {
+                UI.renderEmotionCharts(cached.timeline, speakers);
+            } else {
+                const blob = Recorder.getRecordedBlob();
+                const result = await AI.analyze(blob, speakers, entries);
+                if (result) UI.renderEmotionCharts(result.timeline, speakers);
+            }
         } catch (e) {
             document.getElementById('summaryContent').textContent = 'Error: ' + e.message;
         }
@@ -328,7 +327,6 @@ const Orca = (() => {
         UI.setStatus('STANDBY', false);
         UI.setRecordButton(false);
 
-        // Hide controls
         document.getElementById('pauseBtn').style.display = 'none';
         document.getElementById('exportWebmBtn').style.display = 'none';
         document.getElementById('exportMp3Btn').style.display = 'none';
@@ -336,6 +334,7 @@ const Orca = (() => {
         document.getElementById('summaryContent').innerHTML =
             '<span class="summary-placeholder">Record a meeting, then stop to auto-generate summary and key points. Or use the buttons above.</span>';
         document.getElementById('keypointsList').innerHTML = '';
+        document.getElementById('emotionChartsSection').innerHTML = '';
         document.getElementById('toneSummary').style.display = 'none';
 
         console.log('[Orca] Cleared all data');
@@ -343,9 +342,10 @@ const Orca = (() => {
 
     return {
         init,
-        saveApiKey,
-        skipApiKey,
         renameSpeaker,
+        // Legacy (kept so HTML doesn't break if refs exist)
+        saveApiKey: () => { },
+        skipApiKey: () => { },
     };
 })();
 

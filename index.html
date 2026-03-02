@@ -16,24 +16,7 @@
 
 <body>
 
-    <!-- ═══════════════════════════════════════════════════
-     API Key Modal
-     ═══════════════════════════════════════════════════ -->
-    <div class="modal-overlay" id="apiKeyModal">
-        <div class="modal-box">
-            <h2>🔑 AI Enhancement (Optional)</h2>
-            <p>Enter a Gemini API key for richer AI analysis, or skip — <strong>local summarization works without any
-                    key!</strong>
-                Get a free key at <a href="https://ai.google.dev" target="_blank"
-                    style="color:var(--accent)">ai.google.dev</a></p>
-            <input type="password" id="apiKeyInput" placeholder="AIzaSy... (optional)" autocomplete="off">
-            <div class="modal-actions">
-                <button class="btn-action" id="skipApiKey" onclick="Orca.skipApiKey()">Use Local AI</button>
-                <button class="btn-action primary" id="saveApiKey" onclick="Orca.saveApiKey()">Save Gemini
-                    Key</button>
-            </div>
-        </div>
-    </div>
+    <!-- Gemini modal removed — AI powered by Deepgram Audio Intelligence -->
 
     <!-- ═══════════════════════════════════════════════════
      App Shell
@@ -223,15 +206,16 @@
                     </div>
                     <div class="panel-body">
                         <div class="summary-actions">
-                            <button class="btn-action primary" id="summarizeBtn" disabled>✦ AI Summarize</button>
+                            <button class="btn-action primary" id="summarizeBtn" disabled>✦ Summarize</button>
                             <button class="btn-action" id="keypointsBtn" disabled>Key Points</button>
-                            <button class="btn-action" id="toneBtn" disabled>Tone Report</button>
+                            <button class="btn-action" id="toneBtn" disabled>Emotion Chart</button>
                         </div>
                         <div class="summary-content" id="summaryContent">
-                            <span class="summary-placeholder">Record a meeting, then stop to auto-generate summary and
-                                key points. Or use the buttons above.</span>
+                            <span class="summary-placeholder">Record a meeting, then stop to auto-generate per-speaker
+                                summary, key points &amp; emotion timeline.</span>
                         </div>
                         <div id="keypointsList"></div>
+                        <div id="emotionChartsSection"></div>
                     </div>
                 </div>
 
@@ -281,6 +265,7 @@
 
     <!-- JS Modules (loaded in dependency order) -->
     <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/deepgram.js"></script>
     <script src="js/recorder.js"></script>
